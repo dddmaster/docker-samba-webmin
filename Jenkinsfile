@@ -7,7 +7,7 @@ node {
         checkout scm
     }
     stage('Build') {
-        app = docker.build "dddmaster/docker-samba-webmin"
+        app = docker.build("dddmaster/docker-samba-webmin", "--network host .")
     }
     
     stage('push') {

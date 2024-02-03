@@ -1,13 +1,16 @@
 FROM alpine
 LABEL "traefik.http.services.samba.loadbalancer.server.port"="10000"
+
+WORKDIR	/opt/   
 RUN apk upgrade && \
     apk update && \
-	apk add --no-cache ca-certificates openssl perl perl-net-ssleay expect curl bash samba shadow tini procps python3 && \
+	apk add --no-cache ca-certificates openssl perl perl-net-ssleay curl bash samba shadow tini procps python3 && \
 	mkdir -p /opt && \
-	cd /opt && \
-    webmin_version=$(curl -s https://raw.githubusercontent.com/webmin/webmin/master/version) && \
-	wget -q -O - "https://prdownloads.sourceforge.net/webadmin/webmin-$webmin_version.tar.gz" | tar xz && \
-	ln -sf /opt/webmin-$webmin_version /opt/webmin && \	
+    webmin_version=$(curl -s "https://raw.githubusercontent.com/webmin/webmin/master/version") && \
+    echo "$webmin_version" && \
+    wget "https://prdownloads.sourceforge.net/webadmin/webmin-${webmin_version}.tar.gz" && \
+    tar -xzf "webmin-${webmin_version}.tar.gz" && \
+    mv /opt/webmin-${webmin_version} /opt/webmin && \	
     adduser -D -G users -H -S -g 'Samba User' -h /tmp smbuser && \
     file="/etc/samba/smb.conf" && \
     sed -i 's|^;* *\(log file = \).*|   \1/dev/stdout|' $file && \
@@ -58,25 +61,34 @@ RUN apk upgrade && \
     echo '' >>$file && \
     rm -rf /tmp/*
 WORKDIR	/opt/webmin
-COPY conf/setup.exp samba.sh /usr/bin/
+COPY entry.sh /usr/bin/entry.sh
 EXPOSE 137/udp 138/udp 139 445 10000
 
 HEALTHCHECK --interval=60s --timeout=15s \
              CMD smbclient -L '\\localhost' -U '%' -m SMB3
 
-RUN /usr/bin/expect /usr/bin/setup.exp && \
-	rm /usr/bin/setup.exp && \
-	chmod 665 /usr/bin/samba.sh && \
-	apk del expect && \
+RUN export noportcheck=true && \
+    export atboot=false && \
+    export login="admin" && \
+    export password="admin" && \
+    export ssl=1 && \
+    export nostart=true && \
+    export os_type="generic-linux" && \
+    export os_version="6.6" && \
+    export real_os_type="Generic Linux" && \
+    export real_os_version="6.6" && \
+    export config_dir="/etc/webmin" && \
+    export envvardir="/var/webmin" && \
+    export perl="/usr/bin/perl" && \
+    ./setup.sh && \
+	chmod 665 /usr/bin/entry.sh && \
 	wget -q https://raw.githubusercontent.com/christgau/wsdd/master/src/wsdd.py && \
-    rm -rf $(ls -d */ | grep -v -i -E "theme|acl|cron|samba|webmin|lang|proc$|package-updates|software|system-status|vendor_perl") && \
-    rm -rf $(ls -d */ | grep -w -i -E "cluster") && \
+    rm -rf $(ls -d /opt/webmin/*/ | grep -v -i -E "theme|acl|cron|samba|webmin|lang|proc$|package-updates|software|system-status|vendor_perl") && \
+    rm -rf $(ls -d /opt/webmin/*/ | grep -w -i -E "cluster") && \
     sed -r 's/(smb_conf=)(.*)/\1\/etc\/samba\/smb.conf/g' /etc/webmin/samba/config && \
-    cd /etc/webmin && \
-    rm -rf $(ls -d */ | grep -v -i -E "theme|acl|cron|samba|webmin|lang|proc$|package-updates|software|system-status|vendor_perl") && \
-    rm -rf $(ls -d */ | grep -w -i -E "cluster") && \
-    cd /opt/webmin
+    rm -rf $(ls -d /etc/webmin/*/ | grep -v -i -E "theme|acl|cron|samba|webmin|lang|proc$|package-updates|software|system-status|vendor_perl") && \
+    rm -rf $(ls -d /etc/webmin/*/ | grep -w -i -E "cluster")
 VOLUME	["/etc/webmin" , "/var/webmin" , "/etc/samba"]
 CMD ["/etc/webmin/start", "--nofork"] 
-ENTRYPOINT ["/sbin/tini", "--", "/usr/bin/samba.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/bin/entry.sh"]
 	
