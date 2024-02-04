@@ -88,7 +88,6 @@ RUN export noportcheck=true && \
     sed -r 's/(smb_conf=)(.*)/\1\/etc\/samba\/smb.conf/g' /etc/webmin/samba/config && \
     rm -rf $(ls -d /etc/webmin/*/ | grep -v -i -E "theme|acl|cron|samba|webmin|lang|proc$|package-updates|software|system-status|vendor_perl") && \
     rm -rf $(ls -d /etc/webmin/*/ | grep -w -i -E "cluster")
-VOLUME	["/etc/webmin" , "/var/webmin" , "/etc/samba"]
-CMD ["/etc/webmin/start", "--nofork"] 
+VOLUME	["/etc/webmin" , "/var/webmin" , "/etc/samba"] 
 ENTRYPOINT ["/sbin/tini", "--", "/usr/bin/entry.sh"]
 	
